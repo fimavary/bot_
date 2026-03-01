@@ -23,25 +23,13 @@ pub async fn set_location_filter(
         .s
         .city
         .clone()
-        .context("city must be set at this moment")?
+        .context("university must be set at this moment")?
         .get_city()
-        .context("city must be specified")?;
-
-    let county = (*city.county()).to_string();
-    let subject = (*city.subject()).to_string();
-    let city_name = (*city.city()).to_string();
-
-    let mut subject_city = vec![KeyboardButton::new(subject.clone())];
-    if subject != city_name {
-        subject_city.push(KeyboardButton::new(city_name));
-    };
+        .context("university must be specified")?;
 
     let keyboard = vec![
-        vec![
-            KeyboardButton::new("Вся Россия".to_owned()),
-            KeyboardButton::new(format!("{county} ФО",)),
-        ],
-        subject_city,
+        vec![KeyboardButton::new("Все университеты")],
+        vec![KeyboardButton::new(format!("Только {}", city.city()))],
     ];
     let keyboard_markup = KeyboardMarkup::new(keyboard).resize_keyboard(true);
 
@@ -53,7 +41,11 @@ pub async fn set_location_filter(
 }
 
 pub async fn set_city(bot: &Bot, chat: &Chat) -> anyhow::Result<()> {
-    let keyboard = vec![vec![KeyboardButton::new("Не указывать")]];
+    let keyboard = vec![
+        vec![KeyboardButton::new("МФТИ"), KeyboardButton::new("ВШЭ")],
+        vec![KeyboardButton::new("Финансовый университет")],
+        vec![KeyboardButton::new("Не указывать")],
+    ];
     let keyboard_markup = KeyboardMarkup::new(keyboard).resize_keyboard(true);
     bot.send_message(chat.id, text::REQUEST_CITY)
         .reply_markup(keyboard_markup)
@@ -117,8 +109,13 @@ pub async fn set_grade(bot: &Bot, chat: &Chat) -> anyhow::Result<()> {
     // let keyboard_markup =
     //     KeyboardMarkup::new(keyboard.into_iter()).resize_keyboard(true);
 
+    let keyboard =
+        (1..=6).map(|n| KeyboardButton::new(n.to_string())).chunks(3);
+    let keyboard_markup =
+        KeyboardMarkup::new(keyboard.into_iter()).resize_keyboard(true);
+
     bot.send_message(chat.id, text::REQUEST_GRADE)
-        .reply_markup(KeyboardRemove::new())
+        .reply_markup(keyboard_markup)
         .await?;
     Ok(())
 }
@@ -188,7 +185,7 @@ pub async fn set_photos(bot: &Bot, chat: &Chat) -> anyhow::Result<()> {
 
 pub async fn edit_profile(bot: &Bot, chat: &Chat) -> anyhow::Result<()> {
     let keyboard: Vec<Vec<_>> =
-        ["Имя", "Предметы", "О себе", "Город", "Фото", "Отмена"]
+        ["Имя", "Интересы", "О себе", "Университет", "Фото", "Отмена"]
             .into_iter()
             .map(|i| InlineKeyboardButton::callback(i, format!("e{i}")))
             .chunks(3)

@@ -46,21 +46,9 @@ impl FromStr for LocationFilter {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(if s == "Вся Россия" {
+        Ok(if s == "Все университеты" {
             Self::Country
-        } else if crate::cities::county_exists(
-            &s.chars()
-                .rev()
-                .skip(3)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .rev()
-                .collect::<String>(),
-        ) {
-            Self::County
-        } else if crate::cities::subject_exists(s) {
-            Self::Subject
-        } else if crate::cities::city_exists(s) {
+        } else if s.starts_with("Только ") {
             Self::City
         } else {
             bail!("can't parse text into LocationFilter")
@@ -190,7 +178,7 @@ impl TryFrom<i8> for Grade {
     type Error = ();
 
     fn try_from(value: i8) -> Result<Self, Self::Error> {
-        if (1..=11).contains(&value) {
+        if (1..=6).contains(&value) {
             Ok(Self(value))
         } else {
             Err(())
@@ -200,7 +188,7 @@ impl TryFrom<i8> for Grade {
 
 impl Display for Grade {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!("{} класс", self.0))
+        f.write_fmt(format_args!("{} курс", self.0))
     }
 }
 
@@ -209,9 +197,9 @@ impl From<Grade> for GraduationYear {
         let date = chrono::Local::now();
 
         let year = if date.month() < 9 {
-            date.year() as i16 + (11 - i16::from(grade.0))
+            date.year() as i16 + (6 - i16::from(grade.0))
         } else {
-            date.year() as i16 + (11 - i16::from(grade.0)) + 1
+            date.year() as i16 + (6 - i16::from(grade.0)) + 1
         };
 
         Self(year)
@@ -223,9 +211,9 @@ impl From<GraduationYear> for Grade {
         let date = chrono::Local::now();
 
         let grade = if date.month() < 9 {
-            11 - (graduation_year.0 - date.year() as i16)
+            6 - (graduation_year.0 - date.year() as i16)
         } else {
-            11 - (graduation_year.0 - date.year() as i16) + 1
+            6 - (graduation_year.0 - date.year() as i16) + 1
         };
 
         Self(grade as i8)
@@ -318,30 +306,30 @@ impl Subjects {
     /// Name of exactly one subject
     pub const fn name(&self) -> std::result::Result<&'static str, ()> {
         Ok(match *self {
-            Self::Art => "Искусство 🎨",
-            Self::Astronomy => "Астрономия 🌌",
-            Self::Biology => "Биология 🔬",
-            Self::Chemistry => "Химия 🧪",
-            Self::Chinese => "Китайский 🇨🇳",
-            Self::Ecology => "Экология ♻️",
-            Self::Economics => "Экономика 💶",
-            Self::English => "Английский 🇬🇧",
-            Self::French => "Французский 🇫🇷",
-            Self::Geography => "География 🌎",
-            Self::German => "Немецкий 🇩🇪",
-            Self::History => "История 📰",
-            Self::Informatics => "Информатика 💻",
-            Self::Italian => "Итальянский 🇮🇹",
-            Self::Law => "Право 👨‍⚖️",
-            Self::Literature => "Литература 📖",
-            Self::Math => "Математика 📐",
-            Self::Physics => "Физика ☢️",
-            Self::Russian => "Русский 🇷🇺",
-            Self::Safety => "ОБЖ 🪖",
-            Self::Social => "Обществознание 👫",
-            Self::Spanish => "Испанский 🇪🇸",
-            Self::Sport => "Физкультура 🏐",
-            Self::Technology => "Технология 🚜",
+            Self::Art => "Тех-стартапы 🚀",
+            Self::Astronomy => "Наука и исследования 🔬",
+            Self::Biology => "Медицина и биотех 🧬",
+            Self::Chemistry => "Программирование 💻",
+            Self::Chinese => "ИИ и Data Science 🤖",
+            Self::Ecology => "Менеджмент 📈",
+            Self::Economics => "Экономика и финансы 💰",
+            Self::English => "Маркетинг 📣",
+            Self::French => "Дизайн 🎨",
+            Self::Geography => "Кибербезопасность 🔐",
+            Self::German => "Геймдев 🎮",
+            Self::History => "Робототехника 🦾",
+            Self::Informatics => "Математика и аналитика 📐",
+            Self::Italian => "Физика и инженерия ⚙️",
+            Self::Law => "Право ⚖️",
+            Self::Literature => "Психология 🧠",
+            Self::Math => "Иностранные языки 🌍",
+            Self::Physics => "Путешествия ✈️",
+            Self::Russian => "Спорт 🏅",
+            Self::Safety => "Музыка 🎵",
+            Self::Social => "Волонтёрство 🤝",
+            Self::Spanish => "Кино и сериалы 🎬",
+            Self::Sport => "Книги 📚",
+            Self::Technology => "Настолки и квизы 🎲",
             _ => return Err(()),
         })
     }
@@ -419,9 +407,9 @@ pub struct UserSubjects(Subjects);
 impl Display for UserSubjects {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.0.bits() == 0 {
-            f.write_str("Ничего не ботает.")?;
+            f.write_str("Интересы не указаны.")?;
         } else {
-            f.write_fmt(format_args!("Ботает: {}", self.0))?;
+            f.write_fmt(format_args!("Интересы: {}", self.0))?;
         }
 
         Ok(())
@@ -464,11 +452,10 @@ pub struct SubjectsFilter(Subjects);
 impl Display for SubjectsFilter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.0.bits() == 0 {
-            f.write_str("Вам не важно, что ботает другой человек.")?;
+            f.write_str("Интересы партнёра не важны.")?;
         } else {
             f.write_fmt(format_args!(
-                "Предметы, хотя-бы один из которых должен ботать тот, кого вы \
-                 ищете: {}",
+                "Интересы, хотя-бы один из которых должен быть у человека, которого вы ищете: {}",
                 self.0
             ))?;
         }

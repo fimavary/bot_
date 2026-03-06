@@ -15,7 +15,7 @@ pub struct Database {
 
 impl Database {
     pub async fn new() -> Result<Self> {
-        let db_url = std::env::var("DATABASE_URL")?;
+        let db_url = std::env::var("DATABASE_URL").context("DATABASE_URL is not set. Configure a Postgres connection string, for example: postgres://user:password@localhost:5432/bvilovebot")?;
 
         let mut conn_options = ConnectOptions::new(db_url);
         conn_options.sqlx_logging_level(LevelFilter::Debug);

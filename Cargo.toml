@@ -52,3 +52,6 @@ serde = "1.0.163"
 [profile.release]
 debug = 0
 lto = "thin"
+
+[patch.crates-io]
+time = { path = "vendor/time" }

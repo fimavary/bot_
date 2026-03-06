@@ -16,9 +16,9 @@ use tracing::instrument;
 
 use crate::{
     callbacks::{Callback, RateCode, UpdateBitflags},
-    cities::{UserCity},
+    cities::UserCity,
     db, text,
-    types::{DatingPurpose, Grade, Subjects, LocationFilter},
+    types::{DatingPurpose, Grade, LocationFilter, Subjects},
     utils, Bot, MyDialogue, State, StateData,
 };
 
@@ -230,9 +230,6 @@ async fn try_handle_message(
             let t = t.ok_or(HandleError::NeedText)?;
 
             match t {
-                "Верно" if data.s.city.is_some() => {
-                    upd_print!(SetLocationFilter(mem::take(data)));
-                }
                 "Не указывать" => {
                     data.s.city = Some(UserCity::unspecified());
                     data.s.location_filter = Some(LocationFilter::Country);
@@ -244,20 +241,23 @@ async fn try_handle_message(
                         Start
                     });
                 }
-                city => {
-                    if let Ok(city) = city.parse::<UserCity>() {
-                        data.s.city = Some(city.clone());
-                        send!(
-                            format!("Ваш город - {city}?"),
-                            markup[[
-                                KeyboardButton::new("Верно"),
-                                KeyboardButton::new("Не указывать"),
-                            ]]
-                        );
+                uni => {
+                    if let Ok(city) = uni.parse::<UserCity>() {
+                        data.s.city = Some(city);
+                        upd_print!(if data.create_new {
+                            SetLocationFilter(mem::take(data))
+                        } else {
+                            Start
+                        });
                     } else {
                         send!(
                             text::CANT_FIND_CITY,
-                            markup[[KeyboardButton::new("Не указывать")]]
+                            markup[[
+                                KeyboardButton::new("МФТИ"),
+                                KeyboardButton::new("ВШЭ"),
+                                KeyboardButton::new("Финансовый университет"),
+                                KeyboardButton::new("Не указывать"),
+                            ]]
                         );
                     }
                 }
@@ -405,18 +405,20 @@ async fn try_handle_callback(
             };
 
             // FIXME: store Subjects in EditProfile
-            let current_subjects = data.s.subjects.clone().map_or_else(Subjects::empty, |s| s.into());
+            let current_subjects = data
+                .s
+                .subjects
+                .clone()
+                .map_or_else(Subjects::empty, |s| s.into());
 
             match changed_subjects {
                 UpdateBitflags::Continue => {
                     remove_buttons!();
 
                     let subjects_str = if current_subjects.is_empty() {
-                        "Вы ничего не ботаете.".to_owned()
+                        "Вы не выбрали интересы.".to_owned()
                     } else {
-                        format!(
-                            "Предметы, которые вы ботаете: {current_subjects}.",
-                        )
+                        format!("Ваши интересы: {current_subjects}.",)
                     };
                     bot.edit_message_text(msg.chat.id, msg.id, subjects_str)
                         .await?;
@@ -439,23 +441,27 @@ async fn try_handle_callback(
             }
         }
         SetSubjectsFilter(data) => {
-            let Callback::SetSubjectsFilter(changed_subjects_filter) = callback else {
+            let Callback::SetSubjectsFilter(changed_subjects_filter) = callback
+            else {
                 bail!("wrong callback type")
             };
 
             // FIXME: store Subjects in EditProfile
-            let current_filter = data.s.subjects_filter.clone().map_or_else(Subjects::empty, |s| s.into());
+            let current_filter = data
+                .s
+                .subjects_filter
+                .clone()
+                .map_or_else(Subjects::empty, |s| s.into());
 
             match changed_subjects_filter {
                 UpdateBitflags::Continue => {
                     remove_buttons!();
 
                     let subjects_filter_str = if current_filter.is_empty() {
-                        "Не важно, что ботает другой человек.".to_owned()
+                        "Интересы партнёра не важны.".to_owned()
                     } else {
                         format!(
-                            "Предметы, хотя бы один из которых должен ботать \
-                             тот, кого вы ищете: {current_filter}.",
+                            "Интересы, хотя бы один из которых должен быть у человека, которого вы ищете: {current_filter}.",
                         )
                     };
                     bot.edit_message_text(
@@ -489,7 +495,8 @@ async fn try_handle_callback(
             };
 
             // FIXME: store DatingPurpose in EditProfile
-            let current_purpose = data.s.dating_purpose.map_or_else(DatingPurpose::empty, |s| s);
+            let current_purpose =
+                data.s.dating_purpose.map_or_else(DatingPurpose::empty, |s| s);
 
             match new_purpose {
                 UpdateBitflags::Continue => {
@@ -538,9 +545,9 @@ async fn try_handle_callback(
             remove_buttons!();
             let state = match data {
                 "Имя" => SetName(p),
-                "Предметы" => SetSubjects(p),
+                "Интересы" => SetSubjects(p),
                 "О себе" => SetAbout(p),
-                "Город" => SetCity(p),
+                "Университет" => SetCity(p),
                 "Фото" => SetPhotos(p),
                 "Отмена" => Start,
                 _ => bail!("unknown edit data"),

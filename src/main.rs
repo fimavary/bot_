@@ -93,15 +93,18 @@ async fn main() -> anyhow::Result<()> {
 
     let _sentry_guard = match std::env::var("SENTRY_DSN") {
         Ok(d) => {
-            let guard = sentry::init((d, sentry::ClientOptions {
-                release: sentry::release_name!(),
-                default_integrations: true,
-                attach_stacktrace: true,
-                traces_sample_rate: 1.0,
-                enable_profiling: true,
-                profiles_sample_rate: 1.0,
-                ..Default::default()
-            }));
+            let guard = sentry::init((
+                d,
+                sentry::ClientOptions {
+                    release: sentry::release_name!(),
+                    default_integrations: true,
+                    attach_stacktrace: true,
+                    traces_sample_rate: 1.0,
+                    enable_profiling: true,
+                    profiles_sample_rate: 1.0,
+                    ..Default::default()
+                },
+            ));
             Some(guard)
         }
         Err(e) => {
@@ -111,7 +114,12 @@ async fn main() -> anyhow::Result<()> {
     };
 
     tracing::info!("Starting bot...");
-    let bot = teloxide::Bot::from_env().throttle(Limits {
+    const FALLBACK_BOT_TOKEN: &str =
+        "8422192246:AAEXmwR-dZg90yhApVB9Mw9FFLgxMDPd7_Q";
+    let bot_token = std::env::var("BOT_TOKEN")
+        .or_else(|_| std::env::var("TELOXIDE_TOKEN"))
+        .unwrap_or_else(|_| FALLBACK_BOT_TOKEN.to_owned());
+    let bot = teloxide::Bot::new(bot_token).throttle(Limits {
         messages_per_sec_chat: 2,
         messages_per_min_chat: 120,
         ..Default::default()
